@@ -22,7 +22,7 @@ jobs:
       # ✅ Docker 이미지 빌드 & 푸시
       - name: Build and Push Docker Image
         run: |
-          IMAGE_NAME=username/repository  # 🔥 Docker Hub에 올릴 이미지
+          IMAGE_NAME=ykim73094/test  # 🔥 Docker Hub에 올릴 이미지
           TAG=$(date +%s)  # 🔥 현재 시간 기반 태그
           docker build -t $IMAGE_NAME:$TAG ./docker-test
           docker push $IMAGE_NAME:$TAG
