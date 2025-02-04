@@ -22,7 +22,7 @@ jobs:
         run: |
           IMAGE_NAME=username/repository
           TAG=$(date +%s)
-          docker build -t $IMAGE_NAME:$TAG .
+          docker build -t $IMAGE_NAME:$TAG ./docker-test
           docker push $IMAGE_NAME:$TAG
           echo "IMAGE=$IMAGE_NAME:$TAG" >> $GITHUB_ENV
 
