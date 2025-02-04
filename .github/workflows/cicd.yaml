@@ -75,6 +75,9 @@ jobs:
 
       - name: Check ArgoCD Server Accessibility
         run: curl -v ${{ secrets.ARGOCD_SERVER }}
+
+      - name: Debug ARGOCD_SERVER
+        run: echo "ARGOCD_SERVER is set to: ${{ secrets.ARGOCD_SERVER }}"
   
       # ✅ Argo CD 로그인
       - name: Login to Argo CD
