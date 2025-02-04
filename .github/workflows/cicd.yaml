@@ -25,12 +25,3 @@ jobs:
           docker build -t $IMAGE_NAME:$TAG ./docker-test
           docker push $IMAGE_NAME:$TAG
           echo "IMAGE=$IMAGE_NAME:$TAG" >> $GITHUB_ENV
-
-      - name: Update Kubernetes Manifests
-        run: |
-          sed -i "s|image:.*|image: ${{ env.IMAGE }}|" k8s/deployment.yaml
-          git config --global user.email "github-actions@github.com"
-          git config --global user.name "GitHub Actions"
-          git add k8s/deployment.yaml
-          git commit -m "Update deployment image"
-          git push
