@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: my-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ykim73094/kubernetes-anotherclass-sprint2.git  # 🔥 GitHub 레포지토리 URL
+    targetRevision: main
+    path: k8s  # 🔥 Kubernetes 매니페스트가 있는 폴더
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
