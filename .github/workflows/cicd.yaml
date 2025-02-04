@@ -81,4 +81,5 @@ jobs:
 
       - name: Trigger Argo CD Sync
         run: |
-          argocd app sync my-app --grpc-web --insecure --wait
+          argocd app sync my-app --grpc-web --insecure
+          argocd app wait my-app --health --operation --timeout 300
