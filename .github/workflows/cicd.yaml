@@ -60,15 +60,22 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      # ✅ Kubeconfig 설정
-      - name: Set up Kubeconfig
+      # ✅ Argo CD CLI 설치
+      - name: Install Argo CD CLI
         run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBECONFIG_DATA }}" | base64 -d > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
-          export KUBECONFIG=$HOME/.kube/config  # ✅ KUBECONFIG 적용
+          curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x argocd-linux-amd64
+          sudo mv argocd-linux-amd64 /usr/local/bin/argocd
 
-      # ✅ Argo CD Sync 트리거 (GitOps 방식)
+      # ✅ Argo CD 로그인
+      - name: Login to Argo CD
+        run: |
+          argocd login ${{ secrets.ARGOCD_SERVER }} \
+            --username ${{ secrets.ARGOCD_USERNAME }} \
+            --password ${{ secrets.ARGOCD_PASSWORD }} \
+            --insecure
+
+      # ✅ Argo CD 애플리케이션 동기화 (배포)
       - name: Trigger Argo CD Sync
         run: |
           argocd app sync my-app
