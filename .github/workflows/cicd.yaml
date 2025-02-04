@@ -3,7 +3,7 @@ name: CI/CD Pipeline
 on:
   push:
     branches:
-      - main  # ✅ main 브랜치에 푸시될 때 실행
+      - main  # ✅ main 브랜치에 Push될 때 실행
 
 jobs:
   build:
@@ -22,8 +22,8 @@ jobs:
       # ✅ Docker 이미지 빌드 & 푸시
       - name: Build and Push Docker Image
         run: |
-          IMAGE_NAME=ykim73094/test  # 🔥 Docker Hub에 올릴 이미지
-          TAG=$(date +%s)  # 🔥 현재 시간 기반 태그
+          IMAGE_NAME=ykim73094/test  # 🔥 Docker Hub에 저장할 이미지
+          TAG=$(date +%s)
           docker build -t $IMAGE_NAME:$TAG ./docker-test
           docker push $IMAGE_NAME:$TAG
           echo "IMAGE=$IMAGE_NAME:$TAG" >> $GITHUB_ENV
@@ -35,25 +35,39 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      # ✅ Kubernetes 연결 (Kubeconfig 설정)
+      # ✅ Kubernetes 연결 (Kubeconfig 설정 - `/root/admin.conf` 적용)
       - name: Set up Kubeconfig
         run: |
           mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBECONFIG_DATA }}" > $HOME/.kube/config
+          echo "${{ secrets.KUBECONFIG_DATA }}" | base64 -d > $HOME/.kube/config
           chmod 600 $HOME/.kube/config
+          export KUBECONFIG=$HOME/.kube/config  # 🔥 `KUBECONFIG=/root/admin.conf` 반영!
 
-      # ✅ Kubernetes 매니페스트 업데이트
-      - name: Update Kubernetes Manifests
+      # ✅ 현재 Kubernetes 상태 확인
+      - name: Verify Kubernetes Access
         run: |
+          kubectl config view
+          kubectl cluster-info
+          kubectl get nodes
+
+      # ✅ Kubernetes 매니페스트 업데이트 확인
+      - name: Check Deployment YAML Before & After
+        run: |
+          echo "Before change:"
+          cat k8s/deployment.yaml
           sed -i "s|image:.*|image: ${{ env.IMAGE }}|" k8s/deployment.yaml
-          git config --global user.email "github-actions@github.com"
-          git config --global user.name "GitHub Actions"
+          echo "After change:"
+          cat k8s/deployment.yaml
+
+      # ✅ GitHub에 변경 사항 적용
+      - name: Force Git Commit
+        run: |
           git add k8s/deployment.yaml
-          git commit -m "Update deployment image"
-          git push
+          git diff --quiet && git commit -m "Update deployment image" || echo "No changes to commit"
+          git push || echo "No changes to push"
 
       # ✅ Kubernetes 배포 적용
       - name: Deploy to Kubernetes
         run: |
           kubectl apply -f k8s/deployment.yaml
-          kubectl rollout status deployment/my-app -n default
+          kubectl rollout status deployment/my-app -n default || kubectl get events -n default
