@@ -73,6 +73,9 @@ jobs:
              echo "Argo CD CLI already installed."
             fi
 
+- name: Check ArgoCD Server Accessibility
+  run: curl -v ${{ secrets.ARGOCD_SERVER }}
+  
       # ✅ Argo CD 로그인
       - name: Login to Argo CD
         run: |
