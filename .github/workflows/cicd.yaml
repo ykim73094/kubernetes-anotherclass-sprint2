@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4  # kubernetes-anotherclass-sprint2 저장소를 체크아웃
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -44,7 +44,6 @@ jobs:
         run: |
           echo "ykim73094/aks-test:${{ env.TAG }}" > image.txt
 
-      # ✅ 업로드 액션 최신 버전 사용 (v4)
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -56,9 +55,14 @@ jobs:
     needs: build
     steps:
       - name: Checkout ArgoCD Repository
-        uses: actions/checkout@v4  # ✅ 버전 통일
+        uses: actions/checkout@v4
+        with:
+          # 🔸 ArgoCD에서 사용하는 "argocd-example-apps" 리포지토리를 별도로 체크아웃
+          repository: ykim73094/argocd-example-apps
+          token: ${{ secrets.GH_PAT }}      # GitHub Personal Access Token
+          fetch-depth: 0
+          ref: master                       # master 브랜치를 사용 (맞춰서 변경 가능)
 
-      # ✅ 다운로드 액션 최신 버전 사용 (v4)
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
@@ -88,7 +92,6 @@ jobs:
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
 
-          # 원격 최신 가져오기
           git pull --rebase origin master
           git add guestbook/guestbook-ui-deployment.yaml
 
@@ -103,7 +106,7 @@ jobs:
     needs: update-manifest
     steps:
       - name: Checkout this repo (optional)
-        uses: actions/checkout@v4  # ✅ 버전 통일
+        uses: actions/checkout@v4
 
       - name: Install Argo CD CLI
         run: |
