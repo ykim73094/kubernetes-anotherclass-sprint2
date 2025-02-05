@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  build:
+    build:
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.set-image.outputs.image }}  # ✅ GitHub Actions의 outputs로 전달
@@ -48,8 +48,8 @@ jobs:
         run: |
           IMAGE="ykim73094/aks-test:${{ env.TAG }}"
           echo "✅ Setting output image: $IMAGE"
-          echo "image=$IMAGE" >> $GITHUB_ENV
-          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+          echo "image=$IMAGE" >> $GITHUB_ENV   # ✅ 환경 변수로 설정
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT  # ✅ GitHub Actions outputs로 설정
 
   update-manifest:
     runs-on: ubuntu-latest
