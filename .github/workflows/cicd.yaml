@@ -56,14 +56,19 @@ jobs:
           git config --global user.name "GitHub Actions"
 
           git fetch --all
-          git checkout master  # 🔥 master 브랜치 체크아웃
+          git checkout master  # ✅ master 브랜치 체크아웃
+          
+          # 🔥 변경 사항을 먼저 stash (임시 저장)
+          git stash push -m "Temp changes" 
+
+          # 🔥 최신 코드 가져오기
           git pull --rebase origin master
 
-          # 🔥 변경 사항 확인 및 `git add` 수행
-          git status
-          git add guestbook/guestbook-ui-deployment.yaml
-          git status
+          # 🔥 stash된 변경 사항 복원
+          git stash pop || echo "No stash found"
 
+          # 🔥 변경 사항 확인 후 커밋 진행
+          git add guestbook/guestbook-ui-deployment.yaml
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
