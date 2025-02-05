@@ -9,7 +9,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      # build Job에서 생성한 이미지명을 update-manifest Job에서 사용하기 위해 저장
       image: ${{ steps.set-image.outputs.image }}
 
     steps:
@@ -51,8 +50,11 @@ jobs:
       - name: Set Output Image
         id: set-image
         run: |
-          # update-manifest Job에서 사용하기 위해 최종 이미지 레퍼런스를 outputs로 넘김
-          echo "image=ykim73094/aks-test:${{ env.TAG }}" >> $GITHUB_OUTPUT
+          IMAGE="ykim73094/aks-test:${{ env.TAG }}"
+          echo "✅ Setting output image: $IMAGE"
+          echo "image=$IMAGE" >> $GITHUB_ENV
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
 
   update-manifest:
     runs-on: ubuntu-latest
@@ -61,23 +63,26 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          # 실제로 YAML을 수정할 대상은 다른 Repo(ykim73094/argocd-example-apps)라고 했으므로 다음과 같이 설정
           fetch-depth: 0
           repository: ykim73094/argocd-example-apps
           token: ${{ secrets.GH_PAT }}
 
-      - name: Update Deployment YAML
+      - name: Ensure image field exists & Update Deployment YAML
         run: |
-          IMAGE=${{ needs.build.outputs.image }}
+          IMAGE="${{ needs.build.outputs.image }}"
           if [ -z "$IMAGE" ]; then
             echo "⚠️ ERROR: Docker image is empty! Exiting..."
             exit 1
           fi
 
+          if ! grep -q "image:" guestbook/guestbook-ui-deployment.yaml; then
+            echo "image: ykim73094/aks-test:latest" >> guestbook/guestbook-ui-deployment.yaml
+          fi
+
           sed -i "s|image: .*|image: $IMAGE|" guestbook/guestbook-ui-deployment.yaml
 
           echo "🔍 Updated guestbook-ui-deployment.yaml:"
-          cat guestbook/guestbook-ui-deployment.yaml  # 변경된 내용 출력
+          cat guestbook/guestbook-ui-deployment.yaml
           
       - name: Commit and Push Changes
         run: |
