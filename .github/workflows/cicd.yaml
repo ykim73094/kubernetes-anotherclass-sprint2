@@ -48,12 +48,15 @@ jobs:
         run: |
           IMAGE="ykim73094/aks-test:${{ env.TAG }}"
           echo "✅ Setting output image: $IMAGE"
-          echo "image=$IMAGE" >> $GITHUB_ENV
+          # Job output
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
+          # (선택) 환경변수 설정 - 실제론 굳이 없어도 OK
+          echo "image=$IMAGE" >> $GITHUB_ENV
 
   update-manifest:
     runs-on: ubuntu-latest
     needs: build
+
     steps:
       - name: Checkout ArgoCD Repository
         uses: actions/checkout@v3
@@ -62,11 +65,14 @@ jobs:
           repository: ykim73094/argocd-example-apps
           token: ${{ secrets.GH_PAT }}
 
-      - name: Set IMAGE Environment Variable
-        run: echo "IMAGE=${{ needs.build.outputs.image }}" >> $GITHUB_ENV
+      # -- 불필요/문제의 원인이 된 'Set IMAGE Environment Variable' 스텝 제거 --
+      # - name: Set IMAGE Environment Variable
+      #   run: echo "IMAGE=${{ needs.build.outputs.image }}" >> $GITHUB_ENV
 
       - name: Ensure image field exists & Update Deployment YAML
         run: |
+          # 🔸 바로 여기에서 needs.build.outputs.image 사용
+          IMAGE="${{ needs.build.outputs.image }}"
           if [ -z "$IMAGE" ]; then
             echo "⚠️ ERROR: Docker image is empty! Exiting..."
             exit 1
@@ -94,7 +100,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "✅ No changes to commit."
           else
-            git commit -m "Update deployment image to ${{ env.IMAGE }}"
+            git commit -m "Update deployment image to $IMAGE"
             git push origin master
 
   deploy:
