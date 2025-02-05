@@ -30,8 +30,7 @@ jobs:
       - name: Prepare Image Tag
         id: prepare-tag
         run: |
-          # GitHub Actions에서 매 빌드마다 달라지는 유니크 태그를 만들 수 있음 (timestamp, short SHA 등)
-          # 여기서는 타임스탬프 사용
+          # 타임스탬프 사용 (혹은 short SHA 등 사용 가능)
           echo "TAG=$(date +%s)" >> $GITHUB_ENV
 
       - name: Build and Push Docker Image
@@ -40,9 +39,6 @@ jobs:
         with:
           context: ./docker-test
           push: true
-          # 여러 태그를 동시에 Push 할 수 있습니다.
-          # - latest 태그(선택사항)
-          # - 타임스탬프 태그 (prepare-tag 단계에서 만든 TAG)
           tags: |
             ykim73094/aks-test:latest
             ykim73094/aks-test:${{ env.TAG }}
@@ -52,7 +48,7 @@ jobs:
         run: |
           IMAGE="ykim73094/aks-test:${{ env.TAG }}"
           echo "✅ Setting output image: $IMAGE"
-          echo "image=$IMAGE" >> $GITHUB_ENV
+          # Job output & GITHUB_ENV에 모두 기록
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
 
@@ -60,12 +56,17 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - name: Checkout Repository
+      - name: Checkout argocd-example-apps
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
           repository: ykim73094/argocd-example-apps
           token: ${{ secrets.GH_PAT }}
+      
+      - name: Pull latest code
+        run: |
+          git checkout master
+          git pull origin master
 
       - name: Ensure image field exists & Update Deployment YAML
         run: |
@@ -74,34 +75,23 @@ jobs:
             echo "⚠️ ERROR: Docker image is empty! Exiting..."
             exit 1
           fi
-
+          
+          # guestbook-ui-deployment.yaml 안에 'image:' 라인이 없다면 임시 추가
           if ! grep -q "image:" guestbook/guestbook-ui-deployment.yaml; then
             echo "image: ykim73094/aks-test:latest" >> guestbook/guestbook-ui-deployment.yaml
           fi
-
+          
+          # 존재하는 'image:' 라인을 빌드된 이미지로 치환
           sed -i "s|image: .*|image: $IMAGE|" guestbook/guestbook-ui-deployment.yaml
 
           echo "🔍 Updated guestbook-ui-deployment.yaml:"
           cat guestbook/guestbook-ui-deployment.yaml
-          
+
       - name: Commit and Push Changes
         run: |
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
 
-          git fetch --all
-          git checkout master  # 원격 저장소의 master 브랜치를 사용한다고 가정
-
-          # 변경 사항 임시 저장
-          git stash push -m "Temp changes" 
-
-          # 최신 master 브랜치 가져오기
-          git pull --rebase origin master
-
-          # 임시 저장한 변경 사항 복원
-          git stash pop || echo "No stash found"
-
-          # 변경 사항 커밋/푸시
           git add guestbook/guestbook-ui-deployment.yaml
           if git diff --cached --quiet; then
             echo "No changes to commit"
@@ -114,12 +104,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: update-manifest
     steps:
-      - name: Checkout Repository
+      - name: Checkout this repo (optional)
         uses: actions/checkout@v3
 
       - name: Install Argo CD CLI
         run: |
-          curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          curl -sSL -o argocd-linux-amd64 \
+            https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
           chmod +x argocd-linux-amd64
           sudo mv argocd-linux-amd64 /usr/local/bin/argocd
 
@@ -137,8 +128,8 @@ jobs:
 
       - name: Force Refresh Argo CD App
         run: |
-          # 'argocd app refresh' 대신
-          # 'argocd app get <APP_NAME> --refresh normal' 사용
+          # argocd app refresh <APP_NAME>가 deprecated되었으므로
+          # argocd app get <APP_NAME> --refresh normal 사용
           argocd app get guestbook --refresh normal --grpc-web --insecure
 
       - name: Trigger Argo CD Sync
