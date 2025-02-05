@@ -66,7 +66,6 @@ jobs:
       - name: Set IMAGE Environment Variable
         run: echo "IMAGE=${{ needs.build.outputs.image }}" >> $GITHUB_ENV
 
-      # ✅ 수정된 Debug 스텝 (멀티라인 사용)
       - name: Debug: Print received image
         run: |
           echo "✅ Received image from build job: $IMAGE"
