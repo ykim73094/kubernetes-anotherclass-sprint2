@@ -3,11 +3,13 @@ name: CI/CD Pipeline
 on:
   push:
     branches:
-      - main  # ✅ main 브랜치에 Push될 때 실행
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.set-image.outputs.image }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -19,12 +21,14 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build and Push Docker Image
+        id: set-image
         run: |
           IMAGE_NAME=ykim73094/aks-test
           TAG=$(date +%s)
           docker build -t $IMAGE_NAME:$TAG ./docker-test
           docker push $IMAGE_NAME:$TAG
-          echo "IMAGE=$IMAGE_NAME:$TAG" >> $GITHUB_ENV
+          echo "image=$IMAGE_NAME:$TAG" >> $GITHUB_ENV
+          echo "image=$IMAGE_NAME:$TAG" >> $GITHUB_OUTPUT
 
   update-manifest:
     runs-on: ubuntu-latest
@@ -32,22 +36,25 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+        with:
+          repository: ykim73094/argocd-example-apps
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Update Deployment YAML
         run: |
-          sed -i "s|image: .*|image: ${{ env.IMAGE }}|" k8s/deployment.yaml
+          sed -i "s|image: .*|image: ${{ needs.build.outputs.image }}|" guestbook/guestbook-ui-deployment.yaml
 
       - name: Commit and Push Changes
         run: |
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
-          git add k8s/deployment.yaml
+          git add guestbook/guestbook-ui-deployment.yaml
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
             git fetch --all
             git rebase origin/main
-            git commit -m "Update deployment image to ${{ env.IMAGE }}"
+            git commit -m "Update deployment image to ${{ needs.build.outputs.image }}"
             git push origin main
           fi
 
@@ -58,28 +65,42 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Install Argo CD CLI (if not installed)
+      - name: Install Argo CD CLI
         run: |
-          if ! command -v argocd &> /dev/null
-          then
-            echo "Installing ArgoCD CLI..."
-            curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
-            chmod +x argocd-linux-amd64
-            sudo mv argocd-linux-amd64 /usr/local/bin/argocd || mv argocd-linux-amd64 ~/argocd && export PATH=$HOME:$PATH
-          else
-            echo "Argo CD CLI already installed."
-          fi
+          curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x argocd-linux-amd64
+          sudo mv argocd-linux-amd64 /usr/local/bin/argocd
+
+      - name: Test Argo CD Connection
+        run: |
+          curl -k -I https://${{ secrets.ARGOCD_SERVER }} || echo "ArgoCD server is not reachable"
 
       - name: Login to Argo CD
         run: |
-          echo "Trying to connect to ArgoCD at ${{ secrets.ARGOCD_SERVER }}"
-          curl -k -I https://${{ secrets.ARGOCD_SERVER }} || echo "ArgoCD server is not reachable"
           argocd login ${{ secrets.ARGOCD_SERVER }} \
             --username ${{ secrets.ARGOCD_USERNAME }} \
             --password ${{ secrets.ARGOCD_PASSWORD }} \
-            --insecure --grpc-web
+            --insecure --grpc-web || echo "ArgoCD Login Failed"
+
+      - name: Register Argo CD App (if not exists)
+        run: |
+          if argocd app get guestbook > /dev/null 2>&1; then
+            echo "✅ guestbook 애플리케이션이 이미 존재합니다."
+          else
+            echo "🚀 guestbook 애플리케이션을 ArgoCD에 등록합니다."
+            argocd app create guestbook \
+              --repo https://github.com/ykim73094/argocd-example-apps.git \
+              --path guestbook \
+              --dest-server https://kubernetes.default.svc \
+              --dest-namespace default \
+              --sync-policy automated
+          fi
+
+      - name: Refresh Argo CD App
+        run: |
+          argocd app refresh guestbook --grpc-web --insecure
 
       - name: Trigger Argo CD Sync
         run: |
-          argocd app sync my-app --grpc-web --insecure
-          argocd app wait my-app --health --operation --timeout 300
+          argocd app sync guestbook --grpc-web --insecure
+          argocd app wait guestbook --health --operation --timeout 300
