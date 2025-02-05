@@ -67,7 +67,7 @@ jobs:
         run: echo "IMAGE=${{ needs.build.outputs.image }}" >> $GITHUB_ENV
 
       - name: Debug: Print received image
-        run: echo "✅ Received image from build job: '$IMAGE'"
+        run: echo "✅ Received image from build job: $IMAGE"
 
       - name: Ensure image field exists & Update Deployment YAML
         run: |
