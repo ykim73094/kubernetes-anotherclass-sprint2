@@ -54,7 +54,6 @@ jobs:
   update-manifest:
     runs-on: ubuntu-latest
     needs: build
-
     steps:
       - name: Checkout ArgoCD Repository
         uses: actions/checkout@v3
@@ -65,10 +64,6 @@ jobs:
 
       - name: Set IMAGE Environment Variable
         run: echo "IMAGE=${{ needs.build.outputs.image }}" >> $GITHUB_ENV
-
-      - name: Debug: Print received image
-        run: |
-          echo "✅ Received image from build job: $IMAGE"
 
       - name: Ensure image field exists & Update Deployment YAML
         run: |
