@@ -68,9 +68,10 @@ jobs:
 
       - name: Update Deployment YAML
         run: |
-          # build Job에서 outputs로 받은 이미지 태그를 deployment에 대입
           sed -i "s|image: .*|image: ${{ needs.build.outputs.image }}|" guestbook/guestbook-ui-deployment.yaml
-
+          echo "🔍 Updated deployment.yaml:"
+          cat guestbook/guestbook-ui-deployment.yaml  # 변경된 내용 출력
+          
       - name: Commit and Push Changes
         run: |
           git config --global user.email "github-actions@github.com"
