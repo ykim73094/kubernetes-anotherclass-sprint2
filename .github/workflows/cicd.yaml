@@ -25,10 +25,15 @@ jobs:
         run: |
           IMAGE_NAME=ykim73094/aks-test
           TAG=$(date +%s)
-          docker build -t $IMAGE_NAME:$TAG ./docker-test
-          docker push $IMAGE_NAME:$TAG
+          FULL_IMAGE="$IMAGE_NAME:$TAG"
+
+          echo "::add-mask::$FULL_IMAGE"
           echo "image=$IMAGE_NAME:$TAG" >> $GITHUB_ENV
           echo "image=$IMAGE_NAME:$TAG" >> $GITHUB_OUTPUT
+          echo "::debug::IMAGE=$FULL_IMAGE"
+          
+          docker build -t $FULL_IMAGE ./docker-test
+          docker push $FULL_IMAGE
 
   update-manifest:
     runs-on: ubuntu-latest
