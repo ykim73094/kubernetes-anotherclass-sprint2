@@ -28,12 +28,12 @@ jobs:
           FULL_IMAGE="$IMAGE_NAME:$TAG"
 
           echo "::add-mask::$FULL_IMAGE"
-          echo "image=$IMAGE_NAME:$TAG" >> $GITHUB_ENV
-          echo "image=$IMAGE_NAME:$TAG" >> $GITHUB_OUTPUT
+          echo "image=$FULL_IMAGE" >> $GITHUB_ENV
+          echo "image=$FULL_IMAGE" >> $GITHUB_OUTPUT
           echo "::debug::IMAGE=$FULL_IMAGE"
           
-          docker build -t $FULL_IMAGE ./docker-test
-          docker push $FULL_IMAGE
+          docker build -t "$FULL_IMAGE" ./docker-test
+          docker push "$FULL_IMAGE"
 
   update-manifest:
     runs-on: ubuntu-latest
@@ -56,18 +56,18 @@ jobs:
           git config --global user.name "GitHub Actions"
 
           git fetch --all
-          git checkout master  # ✅ master 브랜치 체크아웃
+          git checkout master  # 원격 저장소의 master 브랜치를 사용한다고 가정
           
-          # 🔥 변경 사항을 먼저 stash (임시 저장)
+          # 변경 사항 임시 저장
           git stash push -m "Temp changes" 
 
-          # 🔥 최신 코드 가져오기
+          # 최신 master 브랜치 가져오기
           git pull --rebase origin master
 
-          # 🔥 stash된 변경 사항 복원
+          # 임시 저장한 변경 사항 복원
           git stash pop || echo "No stash found"
 
-          # 🔥 변경 사항 확인 후 커밋 진행
+          # 변경 사항 커밋/푸시
           git add guestbook/guestbook-ui-deployment.yaml
           if git diff --cached --quiet; then
             echo "No changes to commit"
@@ -98,11 +98,15 @@ jobs:
           argocd login ${{ secrets.ARGOCD_SERVER }} \
             --username ${{ secrets.ARGOCD_USERNAME }} \
             --password ${{ secrets.ARGOCD_PASSWORD }} \
-            --insecure --grpc-web || echo "ArgoCD Login Failed"
+            --insecure \
+            --grpc-web
 
-      - name: Refresh Argo CD App
+      # 'argocd app refresh' 대신 'argocd app get --refresh' 사용
+      - name: Force Refresh Argo CD App
         run: |
-          argocd app refresh guestbook --grpc-web --insecure
+          # --refresh normal : Git/클러스터 캐시만 갱신
+          # --refresh hard   : 리소스 캐시까지 모두 갱신
+          argocd app get guestbook --refresh normal --grpc-web --insecure
 
       - name: Trigger Argo CD Sync
         run: |
