@@ -49,12 +49,16 @@ jobs:
         run: |
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
+          
           git add guestbook/guestbook-ui-deployment.yaml
+          
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
+            git stash  # ✅ 변경 사항을 임시로 저장
             git fetch --all
             git pull --rebase origin main  # ✅ 변경됨
+            git stash pop  # ✅ 임시 저장한 변경 사항을 다시 적용
             git commit -m "Update deployment image to ${{ needs.build.outputs.image }}"
             git push origin main
           fi
