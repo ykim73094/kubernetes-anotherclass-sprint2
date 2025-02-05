@@ -46,12 +46,14 @@ jobs:
       - name: Set Output Image
         id: set-image
         run: |
-          IMAGE="ykim73094/aks-test:${{ env.TAG }}"
-          echo "✅ Setting output image: $IMAGE"
-          # Job output
-          echo "image=$IMAGE" >> $GITHUB_OUTPUT
-          # (선택) 환경변수 설정 - 실제론 굳이 없어도 OK
-          echo "image=$IMAGE" >> $GITHUB_ENV
+          OUTPUT_IMAGE="ykim73094/aks-test:${{ env.TAG }}"
+          echo "✅ Setting output image: $OUTPUT_IMAGE"
+
+          # 🔸 Output key를 "built_image" 라는 새 이름으로 설정
+          echo "built_image=$OUTPUT_IMAGE" >> $GITHUB_OUTPUT
+
+          # (선택) 환경 변수 설정 - 굳이 필요없으면 생략
+          echo "built_image=$OUTPUT_IMAGE" >> $GITHUB_ENV
 
   update-manifest:
     runs-on: ubuntu-latest
@@ -65,14 +67,9 @@ jobs:
           repository: ykim73094/argocd-example-apps
           token: ${{ secrets.GH_PAT }}
 
-      # -- 불필요/문제의 원인이 된 'Set IMAGE Environment Variable' 스텝 제거 --
-      # - name: Set IMAGE Environment Variable
-      #   run: echo "IMAGE=${{ needs.build.outputs.image }}" >> $GITHUB_ENV
-
       - name: Ensure image field exists & Update Deployment YAML
         run: |
-          # 🔸 바로 여기에서 needs.build.outputs.image 사용
-          IMAGE="${{ needs.build.outputs.image }}"
+          IMAGE="${{ needs.build.outputs.built_image }}"
           if [ -z "$IMAGE" ]; then
             echo "⚠️ ERROR: Docker image is empty! Exiting..."
             exit 1
