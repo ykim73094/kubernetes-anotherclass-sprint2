@@ -48,7 +48,6 @@ jobs:
         run: |
           IMAGE="ykim73094/aks-test:${{ env.TAG }}"
           echo "✅ Setting output image: $IMAGE"
-          echo "image=$IMAGE" >> $GITHUB_ENV
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
 
   update-manifest:
