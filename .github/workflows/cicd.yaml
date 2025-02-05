@@ -6,10 +6,10 @@ on:
       - main
 
 jobs:
-    build:
+  build:
     runs-on: ubuntu-latest
     outputs:
-      image: ${{ steps.set-image.outputs.image }}  # ✅ GitHub Actions의 outputs로 전달
+      image: ${{ steps.set-image.outputs.image }}
 
     steps:
       - name: Checkout Repository
@@ -54,6 +54,9 @@ jobs:
   update-manifest:
     runs-on: ubuntu-latest
     needs: build
+    env:
+      IMAGE: ${{ needs.build.outputs.image }}
+
     steps:
       - name: Checkout ArgoCD Repository
         uses: actions/checkout@v3
@@ -64,12 +67,11 @@ jobs:
 
       - name: Debug: Print received image
         run: |
-          echo "✅ Received image from build job: '${{ needs.build.outputs.image }}'"
+          echo "✅ Received image from build job: '${{ env.IMAGE }}'"
 
       - name: Ensure image field exists & Update Deployment YAML
         run: |
-          IMAGE="${{ needs.build.outputs.image }}"
-          if [ -z "$IMAGE" ]; then
+          if [ -z "${{ env.IMAGE }}" ]; then
             echo "⚠️ ERROR: Docker image is empty! Exiting..."
             exit 1
           fi
@@ -80,10 +82,25 @@ jobs:
           fi
 
           # 기존 이미지 업데이트
-          sed -i "s|image: .*|image: $IMAGE|" guestbook/guestbook-ui-deployment.yaml
+          sed -i "s|image: .*|image: ${{ env.IMAGE }}|" guestbook/guestbook-ui-deployment.yaml
 
           echo "🔍 Updated guestbook-ui-deployment.yaml:"
           cat guestbook/guestbook-ui-deployment.yaml
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+
+          git pull --rebase origin master
+          git add guestbook/guestbook-ui-deployment.yaml
+
+          if git diff --cached --quiet; then
+            echo "✅ No changes to commit."
+          else
+            git commit -m "Update deployment image to ${{ env.IMAGE }}"
+            git push origin master
+          fi
 
   deploy:
     runs-on: ubuntu-latest
@@ -94,28 +111,44 @@ jobs:
 
       - name: Install Argo CD CLI
         run: |
-          curl -sSL -o argocd-linux-amd64 \
-            https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
-          chmod +x argocd-linux-amd64
-          sudo mv argocd-linux-amd64 /usr/local/bin/argocd
+          if ! command -v argocd &> /dev/null; then
+            echo "🚀 Installing ArgoCD CLI..."
+            curl -sSL -o argocd-linux-amd64 \
+              https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+            chmod +x argocd-linux-amd64
+            sudo mv argocd-linux-amd64 /usr/local/bin/argocd
+          else
+            echo "✅ Argo CD CLI already installed."
+          fi
 
       - name: Test Argo CD Connection
         run: |
-          curl -k -I https://${{ secrets.ARGOCD_SERVER }} || echo "ArgoCD server is not reachable"
+          curl -k -I https://${{ secrets.ARGOCD_SERVER }} || echo "⚠️ ArgoCD server is not reachable"
 
       - name: Login to Argo CD
         run: |
           argocd login ${{ secrets.ARGOCD_SERVER }} \
             --username ${{ secrets.ARGOCD_USERNAME }} \
             --password ${{ secrets.ARGOCD_PASSWORD }} \
-            --insecure \
-            --grpc-web
+            --insecure --grpc-web
 
-      - name: Force Refresh Argo CD App
+      - name: Ensure Guestbook App is Registered
         run: |
-          # argocd app refresh <APP_NAME>가 deprecated되었으므로
-          # argocd app get <APP_NAME> --refresh normal 사용
-          argocd app get guestbook --refresh normal --grpc-web --insecure
+          if argocd app get guestbook > /dev/null 2>&1; then
+            echo "✅ guestbook 애플리케이션이 이미 존재합니다."
+          else
+            echo "🚀 guestbook 애플리케이션을 ArgoCD에 등록합니다."
+            argocd app create guestbook \
+              --repo https://github.com/ykim73094/argocd-example-apps.git \
+              --path guestbook \
+              --dest-server https://kubernetes.default.svc \
+              --dest-namespace default \
+              --sync-policy automated
+          fi
+
+      - name: Enable Auto-Sync in ArgoCD
+        run: |
+          argocd app set guestbook --sync-policy automated --auto-prune --self-heal
 
       - name: Trigger Argo CD Sync
         run: |
