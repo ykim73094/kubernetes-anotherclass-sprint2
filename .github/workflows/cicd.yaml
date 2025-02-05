@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4  # kubernetes-anotherclass-sprint2 저장소를 체크아웃
+        uses: actions/checkout@v4
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -57,11 +57,11 @@ jobs:
       - name: Checkout ArgoCD Repository
         uses: actions/checkout@v4
         with:
-          # 아르고CD가 사용하는 'argocd-example-apps' 레포지토리 체크아웃
+          # Argo CD가 사용하는 'argocd-example-apps' 리포지토리
           repository: ykim73094/argocd-example-apps
           token: ${{ secrets.GH_PAT }}
           fetch-depth: 0
-          ref: master  # master 브랜치 기준
+          ref: master
 
       - name: Download artifact
         uses: actions/download-artifact@v4
@@ -108,7 +108,7 @@ jobs:
       - name: Install Argo CD CLI
         run: |
           if ! command -v argocd &> /dev/null; then
-            echo "Installing ArgoCD CLI..."
+            echo "Installing Argo CD CLI..."
             curl -sSL -o argocd-linux-amd64 \
               https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
             chmod +x argocd-linux-amd64
@@ -131,15 +131,16 @@ jobs:
       - name: Ensure Guestbook App is Registered
         run: |
           if argocd app get guestbook > /dev/null 2>&1; then
-            echo "guestbook 애플리케이션이 이미 존재합니다."
+            echo "guestbook application already exists."
           else
-            echo "guestbook 애플리케이션을 ArgoCD에 등록합니다."
+            echo "Creating guestbook application in Argo CD..."
             argocd app create guestbook \
               --repo https://github.com/ykim73094/argocd-example-apps.git \
               --path guestbook \
               --dest-server https://kubernetes.default.svc \
               --dest-namespace default \
               --sync-policy automated
+          fi
 
       - name: Enable Auto-Sync in ArgoCD
         run: |
