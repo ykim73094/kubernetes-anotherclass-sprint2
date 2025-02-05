@@ -14,7 +14,7 @@ Trigger Tekton CI/CD Mon Feb  3 02:12:01 PM KST 2025
 testㅗㅗ
 commit test
 ㅇㄹㅇㄹㅇㄹsss
-docker test
+docker testㅇㅇ
 test2222ddddfdㅇㅇㅇ
 ddddddㅇㄹㅇㄹㅇㄹ
 ㅇㅇㅇㅇㅇㅇㅇㅇㅇㅇㅇddd
