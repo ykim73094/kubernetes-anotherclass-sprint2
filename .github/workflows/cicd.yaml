@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+permissions:  # 🔥 GITHUB_TOKEN의 권한을 명시적으로 설정
+  contents: write  # ✅ Push 권한 활성화
+  pull-requests: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
