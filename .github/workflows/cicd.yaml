@@ -48,8 +48,8 @@ jobs:
         run: |
           IMAGE="ykim73094/aks-test:${{ env.TAG }}"
           echo "✅ Setting output image: $IMAGE"
-          echo "image=$IMAGE" >> $GITHUB_ENV   # ✅ 환경 변수로 설정
-          echo "image=$IMAGE" >> $GITHUB_OUTPUT  # ✅ GitHub Actions outputs로 설정
+          echo "image=$IMAGE" >> $GITHUB_ENV
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
 
   update-manifest:
     runs-on: ubuntu-latest
@@ -66,8 +66,10 @@ jobs:
       - name: Set IMAGE Environment Variable
         run: echo "IMAGE=${{ needs.build.outputs.image }}" >> $GITHUB_ENV
 
+      # ✅ 수정된 Debug 스텝 (멀티라인 사용)
       - name: Debug: Print received image
-        run: echo "✅ Received image from build job: '\'$IMAGE'\''"
+        run: |
+          echo "✅ Received image from build job: $IMAGE"
 
       - name: Ensure image field exists & Update Deployment YAML
         run: |
@@ -100,7 +102,6 @@ jobs:
           else
             git commit -m "Update deployment image to ${{ env.IMAGE }}"
             git push origin master
-          fi
 
   deploy:
     runs-on: ubuntu-latest
@@ -119,7 +120,6 @@ jobs:
             sudo mv argocd-linux-amd64 /usr/local/bin/argocd
           else
             echo "✅ Argo CD CLI already installed."
-          fi
 
       - name: Test Argo CD Connection
         run: |
@@ -144,7 +144,6 @@ jobs:
               --dest-server https://kubernetes.default.svc \
               --dest-namespace default \
               --sync-policy automated
-          fi
 
       - name: Enable Auto-Sync in ArgoCD
         run: |
