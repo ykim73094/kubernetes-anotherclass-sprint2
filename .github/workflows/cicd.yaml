@@ -57,7 +57,6 @@ jobs:
       - name: Checkout ArgoCD Repository
         uses: actions/checkout@v4
         with:
-          # Argo CD가 사용하는 'argocd-example-apps' 리포지토리
           repository: ykim73094/argocd-example-apps
           token: ${{ secrets.GH_PAT }}
           fetch-depth: 0
@@ -150,3 +149,6 @@ jobs:
         run: |
           argocd app sync guestbook --grpc-web --insecure
           argocd app wait guestbook --health --operation --timeout 300
+
+# (파일 끝에 빈 줄 추가)
+
