@@ -8,9 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    outputs:
-      image: ${{ steps.set-image.outputs.image }}
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -43,22 +40,19 @@ jobs:
             ykim73094/aks-test:latest
             ykim73094/aks-test:${{ env.TAG }}
 
-      - name: Set Output Image
-        id: set-image
+      - name: Save image info to file
         run: |
-          OUTPUT_IMAGE="ykim73094/aks-test:${{ env.TAG }}"
-          echo "✅ Setting output image: $OUTPUT_IMAGE"
+          echo "ykim73094/aks-test:${{ env.TAG }}" > image.txt
 
-          # 🔸 Output key를 "built_image" 라는 새 이름으로 설정
-          echo "built_image=$OUTPUT_IMAGE" >> $GITHUB_OUTPUT
-
-          # (선택) 환경 변수 설정 - 굳이 필요없으면 생략
-          echo "built_image=$OUTPUT_IMAGE" >> $GITHUB_ENV
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: built-image
+          path: image.txt
 
   update-manifest:
     runs-on: ubuntu-latest
     needs: build
-
     steps:
       - name: Checkout ArgoCD Repository
         uses: actions/checkout@v3
@@ -67,9 +61,14 @@ jobs:
           repository: ykim73094/argocd-example-apps
           token: ${{ secrets.GH_PAT }}
 
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: built-image
+
       - name: Ensure image field exists & Update Deployment YAML
         run: |
-          IMAGE="${{ needs.build.outputs.built_image }}"
+          IMAGE="$(cat image.txt)"  # 👈 다운로드받은 파일 읽기
           if [ -z "$IMAGE" ]; then
             echo "⚠️ ERROR: Docker image is empty! Exiting..."
             exit 1
