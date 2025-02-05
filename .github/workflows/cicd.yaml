@@ -57,47 +57,43 @@ jobs:
       - name: Checkout ArgoCD Repository
         uses: actions/checkout@v4
         with:
-          # 🔸 ArgoCD에서 사용하는 "argocd-example-apps" 리포지토리를 별도로 체크아웃
+          # 아르고CD가 사용하는 'argocd-example-apps' 레포지토리 체크아웃
           repository: ykim73094/argocd-example-apps
           token: ${{ secrets.GH_PAT }}
           fetch-depth: 0
-          ref: master  # master 브랜치를 사용한다고 가정
+          ref: master  # master 브랜치 기준
 
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: built-image
 
-      # 1️⃣ 최신 코드를 먼저 pull & rebase
       - name: Pull latest code
         run: |
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
           git pull --rebase origin master
 
-      # 2️⃣ 파일 수정 & commit/push
       - name: Update Deployment YAML
         run: |
           IMAGE="$(cat image.txt)"
           if [ -z "$IMAGE" ]; then
-            echo "⚠️ ERROR: Docker image is empty! Exiting..."
+            echo "ERROR: Docker image is empty! Exiting..."
             exit 1
           fi
 
-          # 'image:' 필드가 없다면 추가
           if ! grep -q "image:" guestbook/guestbook-ui-deployment.yaml; then
             echo "image: ykim73094/aks-test:latest" >> guestbook/guestbook-ui-deployment.yaml
           fi
 
-          # 기존 이미지 업데이트
           sed -i "s|image: .*|image: $IMAGE|" guestbook/guestbook-ui-deployment.yaml
 
-          echo "🔍 Updated guestbook-ui-deployment.yaml:"
+          echo "Updated guestbook-ui-deployment.yaml:"
           cat guestbook/guestbook-ui-deployment.yaml
 
           git add guestbook/guestbook-ui-deployment.yaml
           if git diff --cached --quiet; then
-            echo "✅ No changes to commit."
+            echo "No changes to commit."
           else
             git commit -m "Update deployment image to $IMAGE"
             git push origin master
@@ -112,17 +108,18 @@ jobs:
       - name: Install Argo CD CLI
         run: |
           if ! command -v argocd &> /dev/null; then
-            echo "🚀 Installing ArgoCD CLI..."
+            echo "Installing ArgoCD CLI..."
             curl -sSL -o argocd-linux-amd64 \
               https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
             chmod +x argocd-linux-amd64
             sudo mv argocd-linux-amd64 /usr/local/bin/argocd
           else
-            echo "✅ Argo CD CLI already installed."
+            echo "Argo CD CLI already installed."
+          fi
 
       - name: Test Argo CD Connection
         run: |
-          curl -k -I https://${{ secrets.ARGOCD_SERVER }} || echo "⚠️ ArgoCD server is not reachable"
+          curl -k -I https://${{ secrets.ARGOCD_SERVER }} || echo "ArgoCD server is not reachable"
 
       - name: Login to Argo CD
         run: |
@@ -134,9 +131,9 @@ jobs:
       - name: Ensure Guestbook App is Registered
         run: |
           if argocd app get guestbook > /dev/null 2>&1; then
-            echo "✅ guestbook 애플리케이션이 이미 존재합니다."
+            echo "guestbook 애플리케이션이 이미 존재합니다."
           else
-            echo "🚀 guestbook 애플리케이션을 ArgoCD에 등록합니다."
+            echo "guestbook 애플리케이션을 ArgoCD에 등록합니다."
             argocd app create guestbook \
               --repo https://github.com/ykim73094/argocd-example-apps.git \
               --path guestbook \
