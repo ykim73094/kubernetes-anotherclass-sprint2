@@ -9,10 +9,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
+      # build Job에서 생성한 이미지명을 update-manifest Job에서 사용하기 위해 저장
       image: ${{ steps.set-image.outputs.image }}
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
@@ -20,20 +28,31 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Prepare Image Tag
+        id: prepare-tag
+        run: |
+          # GitHub Actions에서 매 빌드마다 달라지는 유니크 태그를 만들 수 있음 (timestamp, short SHA 등)
+          # 여기서는 타임스탬프 사용
+          echo "TAG=$(date +%s)" >> $GITHUB_ENV
+
       - name: Build and Push Docker Image
+        id: build_and_push
+        uses: docker/build-push-action@v4
+        with:
+          context: ./docker-test
+          push: true
+          # 여러 태그를 동시에 Push 할 수 있습니다.
+          # - latest 태그(선택사항)
+          # - 타임스탬프 태그 (prepare-tag 단계에서 만든 TAG)
+          tags: |
+            ykim73094/aks-test:latest
+            ykim73094/aks-test:${{ env.TAG }}
+
+      - name: Set Output Image
         id: set-image
         run: |
-          IMAGE_NAME=ykim73094/aks-test
-          TAG=$(date +%s)
-          FULL_IMAGE="$IMAGE_NAME:$TAG"
-
-          echo "::add-mask::$FULL_IMAGE"
-          echo "image=$FULL_IMAGE" >> $GITHUB_ENV
-          echo "image=$FULL_IMAGE" >> $GITHUB_OUTPUT
-          echo "::debug::IMAGE=$FULL_IMAGE"
-          
-          docker build -t "$FULL_IMAGE" ./docker-test
-          docker push "$FULL_IMAGE"
+          # update-manifest Job에서 사용하기 위해 최종 이미지 레퍼런스를 outputs로 넘김
+          echo "image=ykim73094/aks-test:${{ env.TAG }}" >> $GITHUB_OUTPUT
 
   update-manifest:
     runs-on: ubuntu-latest
@@ -42,12 +61,14 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
+          # 실제로 YAML을 수정할 대상은 다른 Repo(ykim73094/argocd-example-apps)라고 했으므로 다음과 같이 설정
           fetch-depth: 0
           repository: ykim73094/argocd-example-apps
           token: ${{ secrets.GH_PAT }}
 
       - name: Update Deployment YAML
         run: |
+          # build Job에서 outputs로 받은 이미지 태그를 deployment에 대입
           sed -i "s|image: .*|image: ${{ needs.build.outputs.image }}|" guestbook/guestbook-ui-deployment.yaml
 
       - name: Commit and Push Changes
@@ -57,7 +78,7 @@ jobs:
 
           git fetch --all
           git checkout master  # 원격 저장소의 master 브랜치를 사용한다고 가정
-          
+
           # 변경 사항 임시 저장
           git stash push -m "Temp changes" 
 
@@ -101,11 +122,10 @@ jobs:
             --insecure \
             --grpc-web
 
-      # 'argocd app refresh' 대신 'argocd app get --refresh' 사용
       - name: Force Refresh Argo CD App
         run: |
-          # --refresh normal : Git/클러스터 캐시만 갱신
-          # --refresh hard   : 리소스 캐시까지 모두 갱신
+          # 'argocd app refresh' 대신
+          # 'argocd app get <APP_NAME> --refresh normal' 사용
           argocd app get guestbook --refresh normal --grpc-web --insecure
 
       - name: Trigger Argo CD Sync
