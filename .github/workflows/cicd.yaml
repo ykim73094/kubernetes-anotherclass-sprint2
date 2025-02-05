@@ -59,16 +59,24 @@ jobs:
         with:
           # 🔸 ArgoCD에서 사용하는 "argocd-example-apps" 리포지토리를 별도로 체크아웃
           repository: ykim73094/argocd-example-apps
-          token: ${{ secrets.GH_PAT }}      # GitHub Personal Access Token
+          token: ${{ secrets.GH_PAT }}
           fetch-depth: 0
-          ref: master                       # master 브랜치를 사용 (맞춰서 변경 가능)
+          ref: master  # master 브랜치를 사용한다고 가정
 
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: built-image
 
-      - name: Ensure image field exists & Update Deployment YAML
+      # 1️⃣ 최신 코드를 먼저 pull & rebase
+      - name: Pull latest code
+        run: |
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git pull --rebase origin master
+
+      # 2️⃣ 파일 수정 & commit/push
+      - name: Update Deployment YAML
         run: |
           IMAGE="$(cat image.txt)"
           if [ -z "$IMAGE" ]; then
@@ -87,14 +95,7 @@ jobs:
           echo "🔍 Updated guestbook-ui-deployment.yaml:"
           cat guestbook/guestbook-ui-deployment.yaml
 
-      - name: Commit and Push Changes
-        run: |
-          git config --global user.email "github-actions@github.com"
-          git config --global user.name "GitHub Actions"
-
-          git pull --rebase origin master
           git add guestbook/guestbook-ui-deployment.yaml
-
           if git diff --cached --quiet; then
             echo "✅ No changes to commit."
           else
