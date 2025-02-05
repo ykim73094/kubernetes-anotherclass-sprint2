@@ -100,20 +100,6 @@ jobs:
             --password ${{ secrets.ARGOCD_PASSWORD }} \
             --insecure --grpc-web || echo "ArgoCD Login Failed"
 
-      - name: Register Argo CD App (if not exists)
-        run: |
-          if argocd app get guestbook > /dev/null 2>&1; then
-            echo "✅ guestbook 애플리케이션이 이미 존재합니다."
-          else
-            echo "🚀 guestbook 애플리케이션을 ArgoCD에 등록합니다."
-            argocd app create guestbook \
-              --repo https://github.com/ykim73094/argocd-example-apps.git \
-              --path guestbook \
-              --dest-server https://kubernetes.default.svc \
-              --dest-namespace default \
-              --sync-policy automated
-          fi
-
       - name: Refresh Argo CD App
         run: |
           argocd app refresh guestbook --grpc-web --insecure
