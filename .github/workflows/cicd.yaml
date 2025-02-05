@@ -54,8 +54,6 @@ jobs:
   update-manifest:
     runs-on: ubuntu-latest
     needs: build
-    env:
-      IMAGE: ${{ needs.build.outputs.image }}
 
     steps:
       - name: Checkout ArgoCD Repository
@@ -65,13 +63,15 @@ jobs:
           repository: ykim73094/argocd-example-apps
           token: ${{ secrets.GH_PAT }}
 
+      - name: Set IMAGE Environment Variable
+        run: echo "IMAGE=${{ needs.build.outputs.image }}" >> $GITHUB_ENV
+
       - name: Debug: Print received image
-        run: |
-          echo "✅ Received image from build job: '${{ env.IMAGE }}'"
+        run: echo "✅ Received image from build job: '$IMAGE'"
 
       - name: Ensure image field exists & Update Deployment YAML
         run: |
-          if [ -z "${{ env.IMAGE }}" ]; then
+          if [ -z "$IMAGE" ]; then
             echo "⚠️ ERROR: Docker image is empty! Exiting..."
             exit 1
           fi
@@ -82,7 +82,7 @@ jobs:
           fi
 
           # 기존 이미지 업데이트
-          sed -i "s|image: .*|image: ${{ env.IMAGE }}|" guestbook/guestbook-ui-deployment.yaml
+          sed -i "s|image: .*|image: $IMAGE|" guestbook/guestbook-ui-deployment.yaml
 
           echo "🔍 Updated guestbook-ui-deployment.yaml:"
           cat guestbook/guestbook-ui-deployment.yaml
