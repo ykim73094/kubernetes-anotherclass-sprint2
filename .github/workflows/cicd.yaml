@@ -9,25 +9,22 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      # 1) kubernetes-anotherclass-sprint2 (현재 Repo) 체크아웃
+
       - name: Checkout This Repository
         uses: actions/checkout@v4
       
-      # 2) Set up Docker Buildx & QEMU
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      # 3) Docker Hub 로그인
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # 4) Docker 이미지 빌드 & 푸시
       - name: Build and Push Docker Image
         id: build_and_push
         uses: docker/build-push-action@v4
@@ -36,17 +33,14 @@ jobs:
           push: true
           tags: |
             ykim73094/aks-test:latest
-            ykim73094/aks-test:${{ github.run_id }}  # 예시: run_id 기반 태그
+            ykim73094/aks-test:${{ github.run_id }}
 
-      # 5) BUILD 스텝이 생성한 이미지 태그를 로컬 변수에 기록
-      #    (여기서는 run_id를 태그로 했으나, timestamp/date 등 사용 가능)
       - name: Prepare Image Variable
         run: |
           IMAGE="ykim73094/aks-test:${{ github.run_id }}"
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
         shell: bash
 
-      # 6) argocd-example-apps 리포지토리 체크아웃
       - name: Checkout ArgoCD Repository
         uses: actions/checkout@v4
         with:
@@ -55,10 +49,8 @@ jobs:
           fetch-depth: 0
           ref: master
 
-      # 7) YAML 수정 (Deployment)
       - name: Update Deployment YAML
         run: |
-          # 로컬 환경변수에서 IMAGE 읽음
           if [ -z "$IMAGE" ]; then
             echo "ERROR: Docker image is empty! Exiting..."
             exit 1
@@ -81,7 +73,6 @@ jobs:
             git commit -m "Update deployment image to $IMAGE"
             git push origin master
 
-      # 8) Argo CD CLI 설치
       - name: Install Argo CD CLI
         run: |
           if ! command -v argocd &> /dev/null; then
@@ -95,7 +86,6 @@ jobs:
           fi
         shell: bash
 
-      # 9) Argo CD 로그인
       - name: Login to Argo CD
         run: |
           argocd login ${{ secrets.ARGOCD_SERVER }} \
@@ -104,7 +94,6 @@ jobs:
             --insecure --grpc-web
         shell: bash
 
-      # 10) guestbook 애플리케이션 존재 여부 확인 & 생성
       - name: Ensure Guestbook App is Registered
         run: |
           if argocd app get guestbook > /dev/null 2>&1; then
@@ -120,13 +109,11 @@ jobs:
           fi
         shell: bash
 
-      # 11) Auto-Sync 설정 (필요시)
       - name: Enable Auto-Sync in ArgoCD
         run: |
           argocd app set guestbook --sync-policy automated --auto-prune --self-heal
         shell: bash
 
-      # 12) Argo CD Sync & Wait
       - name: Trigger Argo CD Sync
         run: |
           argocd app sync guestbook --grpc-web --insecure
