@@ -9,21 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      image: ${{ steps.set-image.outputs.imagRun git config --global user.email "github-actions@github.com"
-  git config --global user.email "github-actions@github.com"
-  git config --global user.name "GitHub Actions"
-  git add guestbook/guestbook-ui-deployment.yaml
-  if git diff --cached --quiet; then
-    echo "No changes to commit"
-  else
-    git fetch --all
-    git rebase origin/main
-    git commit -m "Update deployment image to "
-    git push origin main
-  fi
-  shell: /usr/bin/bash -e {0}
-fatal: invalid upstream 'origin/main'
-Error: Process completed with exit code 128.e }}
+      image: ${{ steps.set-image.outputs.image }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -68,7 +54,7 @@ Error: Process completed with exit code 128.e }}
             echo "No changes to commit"
           else
             git fetch --all
-            git rebase origin/main
+            git pull --rebase origin main  # ✅ 변경됨
             git commit -m "Update deployment image to ${{ needs.build.outputs.image }}"
             git push origin main
           fi
