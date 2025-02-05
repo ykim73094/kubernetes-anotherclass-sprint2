@@ -10,37 +10,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
+      # (1) 현재 Repo(kubernetes-anotherclass-sprint2 등) 체크아웃
       - name: Checkout This Repository
         uses: actions/checkout@v4
       
+      # (2) Set up Docker Buildx & QEMU
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
+      # (3) Docker Hub 로그인
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      # (4) Docker 이미지 빌드 & 푸시
       - name: Build and Push Docker Image
         id: build_and_push
         uses: docker/build-push-action@v4
         with:
           context: ./docker-test
           push: true
+          # run_id 기반 태그 예시
           tags: |
             ykim73094/aks-test:latest
             ykim73094/aks-test:${{ github.run_id }}
 
+      # (5) IMAGE 변수 설정 (Job 내 환경변수로 유지)
       - name: Prepare Image Variable
         run: |
           IMAGE="ykim73094/aks-test:${{ github.run_id }}"
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
-        shell: bash
 
+      # (6) ArgoCD Repo 체크아웃
       - name: Checkout ArgoCD Repository
         uses: actions/checkout@v4
         with:
@@ -48,6 +54,13 @@ jobs:
           token: ${{ secrets.GH_PAT }}
           fetch-depth: 0
           ref: master
+
+      # (7) Pull & Rebase 먼저 → 그 뒤 YAML 수정 & 커밋
+      - name: Pull latest code
+        run: |
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git pull --rebase origin master
 
       - name: Update Deployment YAML
         run: |
@@ -63,9 +76,6 @@ jobs:
           echo "Updated guestbook-ui-deployment.yaml:"
           cat guestbook/guestbook-ui-deployment.yaml
 
-          git config --global user.email "github-actions@github.com"
-          git config --global user.name "GitHub Actions"
-          git pull --rebase origin master
           git add guestbook/guestbook-ui-deployment.yaml
           if git diff --cached --quiet; then
             echo "No changes to commit."
@@ -73,6 +83,7 @@ jobs:
             git commit -m "Update deployment image to $IMAGE"
             git push origin master
 
+      # (8) Argo CD CLI 설치
       - name: Install Argo CD CLI
         run: |
           if ! command -v argocd &> /dev/null; then
@@ -84,16 +95,16 @@ jobs:
           else
             echo "Argo CD CLI already installed."
           fi
-        shell: bash
 
+      # (9) Argo CD 로그인
       - name: Login to Argo CD
         run: |
           argocd login ${{ secrets.ARGOCD_SERVER }} \
             --username ${{ secrets.ARGOCD_USERNAME }} \
             --password ${{ secrets.ARGOCD_PASSWORD }} \
             --insecure --grpc-web
-        shell: bash
 
+      # (10) guestbook 애플리케이션 존재 확인 & 없으면 생성
       - name: Ensure Guestbook App is Registered
         run: |
           if argocd app get guestbook > /dev/null 2>&1; then
@@ -107,15 +118,14 @@ jobs:
               --dest-namespace default \
               --sync-policy automated
           fi
-        shell: bash
 
+      # (11) Auto-Sync 설정
       - name: Enable Auto-Sync in ArgoCD
         run: |
           argocd app set guestbook --sync-policy automated --auto-prune --self-heal
-        shell: bash
 
+      # (12) Argo CD Sync & Wait
       - name: Trigger Argo CD Sync
         run: |
           argocd app sync guestbook --grpc-web --insecure
           argocd app wait guestbook --health --operation --timeout 300
-        shell: bash
