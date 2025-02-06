@@ -30,10 +30,7 @@ jobs:
 
       - name: Prepare Image Tag
         id: prepare-tag
-        run: |
-          # GitHub Actions에서 매 빌드마다 달라지는 유니크 태그를 만들 수 있음 (timestamp, short SHA 등)
-          # 여기서는 타임스탬프 사용
-          echo "TAG=$(date +%s)" >> $GITHUB_ENV
+        run: echo "IMAGE_TAG=$(date +%s)" >> $GITHUB_ENV
 
       - name: Build and Push Docker Image
         id: build_and_push
@@ -41,18 +38,13 @@ jobs:
         with:
           context: ./docker-test
           push: true
-          # 여러 태그를 동시에 Push 할 수 있습니다.
-          # - latest 태그(선택사항)
-          # - 타임스탬프 태그 (prepare-tag 단계에서 만든 TAG)
           tags: |
             ykim73094/aks-test:latest
-            ykim73094/aks-test:${{ env.TAG }}
+            ykim73094/aks-test:${{ env.IMAGE_TAG }}
 
       - name: Set Output Image
         id: set-image
-        run: |
-          # update-manifest Job에서 사용하기 위해 최종 이미지 레퍼런스를 outputs로 넘김
-          echo "image=ykim73094/aks-test:${{ env.TAG }}" >> $GITHUB_OUTPUT
+        run: echo "image=ykim73094/aks-test:${{ env.IMAGE_TAG }}" >> $GITHUB_OUTPUT
 
   update-manifest:
     runs-on: ubuntu-latest
@@ -124,8 +116,6 @@ jobs:
 
       - name: Force Refresh Argo CD App
         run: |
-          # 'argocd app refresh' 대신
-          # 'argocd app get <APP_NAME> --refresh normal' 사용
           argocd app get guestbook --refresh normal --grpc-web --insecure
 
       - name: Trigger Argo CD Sync
